@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Visa Transaction Anomaly Analyzer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen p-8">
+  <div class="max-w-5xl mx-auto">
+    <header class="mb-8 border-b border-slate-800 pb-4 flex justify-between items-center">
+      <div>
+        <h1 class="text-3xl font-bold text-indigo-400">Merchant Expense Anomaly & Risk Analyzer</h1>
+        <p class="text-slate-400 text-sm mt-1">Real-time Transaction Risk Evaluation Dashboard</p>
+      </div>
+      <button onclick="loadSampleData()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-indigo-300 rounded border border-indigo-500/30 text-sm">
+        Load Sample Payload
+      </button>
+    </header>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <h2 class="text-xl font-semibold mb-3 text-slate-200">Input Transaction Payload (JSON)</h2>
+        <textarea id="jsonInput" rows="12" class="w-full bg-slate-950 text-emerald-400 font-mono text-xs p-4 rounded border border-slate-700 focus:outline-none focus:border-indigo-500 mb-4" placeholder="Paste JSON transactions here..."></textarea>
+        <button onclick="analyzePayload()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded shadow-md">
+          Analyze Risk Patterns
+        </button>
+      </div>
+
+      <div class="bg-slate-800 p-6 rounded-xl border border-slate-700 shadow-lg">
+        <h2 class="text-xl font-semibold mb-3 text-slate-200">Analysis Summary</h2>
+        <div id="summary" class="mb-4 text-sm text-slate-400">Run an analysis to view risk metrics.</div>
+        <div id="results" class="space-y-4 max-h-[400px] overflow-y-auto pr-2"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const samplePayload = [
+      { "id": "TX_1001", "merchant": "Local Grocery", "amount": 42.50, "currency": "USD", "timestamp": "2026-03-08T14:30:00Z" },
+      { "id": "TX_1002", "merchant": "Overseas Electronics", "amount": 8450.00, "currency": "EUR", "timestamp": "2026-03-08T02:15:00Z" },
+      { "id": "TX_1003", "merchant": "Coffee Shop", "amount": 5.75, "currency": "USD", "timestamp": "2026-03-08T08:45:00Z" }
+    ];
+
+    function loadSampleData() {
+      document.getElementById('jsonInput').value = JSON.stringify(samplePayload, null, 2);
+    }
+
+    async function analyzePayload() {
+      const rawJson = document.getElementById('jsonInput').value;
+      const resultsDiv = document.getElementById('results');
+      const summaryDiv = document.getElementById('summary');
+
+      try {
+        const transactions = JSON.parse(rawJson);
+        const res = await fetch('/api/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ transactions })
+        });
+        const responseData = await res.json();
+
+        summaryDiv.innerHTML = `<span class="text-indigo-400 font-bold">${responseData.totalAnalyzed}</span> Transactions Analyzed | <span class="text-red-400 font-bold">${responseData.highRiskCount}</span> High Risk Detected`;
+
+        resultsDiv.innerHTML = responseData.data.map(item => `
+          <div class="p-4 rounded border ${item.riskLevel === 'HIGH' ? 'bg-red-950/30 border-red-800/50' : item.riskLevel === 'MEDIUM' ? 'bg-amber-950/30 border-amber-800/50' : 'bg-slate-900 border-slate-700'}">
+            <div class="flex justify-between items-center mb-1">
+              <span class="font-bold text-sm ${item.riskLevel === 'HIGH' ? 'text-red-400' : item.riskLevel === 'MEDIUM' ? 'text-amber-400' : 'text-emerald-400'}">${item.id} - ${item.merchant}</span>
+              <span class="text-xs px-2 py-0.5 rounded font-mono ${item.riskLevel === 'HIGH' ? 'bg-red-900/60 text-red-200' : item.riskLevel === 'MEDIUM' ? 'bg-amber-900/60 text-amber-200' : 'bg-emerald-900/60 text-emerald-200'}">${item.riskLevel} (${item.riskScore} Risk Score)</span>
+            </div>
+            <p class="text-xs text-slate-400 mb-2">Amount: $${item.amount} ${item.currency}</p>
+            <ul class="list-disc list-inside text-xs text-slate-300 space-y-0.5">
+              ${item.flags.map(f => `<li>${f}</li>`).join('')}
+            </ul>
+          </div>
+        `).join('');
+      } catch (err) {
+        alert("Invalid JSON data format.");
+      }
+    }
+  </script>
+</body>
+</html>
